@@ -1843,19 +1843,20 @@ function DrawMatrixHeaderItem($matrix_name, $matrix_text_color, $column_span = 1
 	<?php
 }
 
-function form_area($text) { ?>
+function form_area($text) {
+	?>
 	<tr>
 		<td class='textArea'>
-			<?php print $text;?>
+			<?php print html_escape($text);?>
 		</td>
 	</tr>
-<?php }
+	<?php
+}
 
 /**
- * is_console_page - determines if current passed url is considered to be
- * a console page.
+ * is_console_page - determines if current passed url is considered to be a console page
  *
- * @param  url - url to be checked
+ * @param url - url to be checked
  *
  * @return true if console page, false if not
  */
@@ -1988,7 +1989,7 @@ function html_show_tabs_left() {
 							}
 						}
 
-						print '<a id="tab-link' . $tab['id'] . '" href="' . CACTI_PATH_URL . 'link.php?id=' . $tab['id'] . '"><img src="' . get_classic_tabimage($tab['title'], $down) . '" alt="' . $tab['title'] . '"></a>';
+						print '<a id="tab-link' . $tab['id'] . '" href="' . CACTI_PATH_URL . 'link.php?id=' . $tab['id'] . '"><img src="' . get_classic_tabimage($tab['title'], $down) . '" alt="' . html_escape($tab['title']) . '"></a>';
 					}
 				}
 			}

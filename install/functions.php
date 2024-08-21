@@ -741,9 +741,8 @@ function install_tool_path($name, $defaultPaths) {
 	);
 
 	log_install_debug('file', "$name: Locations ($os), Paths: " . clean_up_lines(var_export($defaultPaths, true)));
-
-	if (isset($settings) && isset($settings['path']) && isset($settings['path']['path_'.$name])) {
-		$tool = $settings['path']['path_'.$name];
+	if (isset($settings) && isset($settings['path']) && isset($settings['path']['path_' . $name])) {
+		$tool = $settings['path']['path_' . $name];
 	} elseif (isset($settings) && isset($settings['mail']) && isset($settings['mail'][$name])) {
 		$tool = $settings['mail'][$name];
 	}
@@ -751,7 +750,7 @@ function install_tool_path($name, $defaultPaths) {
 	$which_tool = '';
 
 	if (config_value_exists('path_' . $name)) {
-		$which_tool = read_config_option('path_'.$name, true);
+		$which_tool = read_config_option('path_' . $name, true);
 		log_install_high('file', "Using config location: $which_tool");
 	}
 
@@ -1037,7 +1036,27 @@ function remote_update_config_file() {
  * @return null        - nothing is returned
  */
 function set_install_config_option($name, $value) {
-	global $local_db_cnn_id;
+	global $config, $local_db_cnn_id;
+
+	/* some additional extension checks */
+	switch($name) {
+		case 'path_cactilog':
+			$extension = pathinfo($value, PATHINFO_EXTENSION);
+
+			if ($extension != 'log') {
+				$value = $config['base_path'] . '/log/cacti.log';
+			}
+
+			break;
+		case 'path_stderrlog':
+			$extension = pathinfo($value, PATHINFO_EXTENSION);
+
+			if ($extension != 'log') {
+				$value = $config['base_path'] . '/log/cacti.stderr.log';
+			}
+
+			break;
+	}
 
 	if (is_object($local_db_cnn_id)) {
 		db_execute_prepared('REPLACE INTO settings (name, value) VALUES (?, ?)', array($name, $value), false, $local_db_cnn_id);
@@ -1289,7 +1308,7 @@ function install_full_sync() {
 	$skipped   = array();
 	$timeout   = array();
 
-	$pollers = db_fetch_assoc('SELECT id, status, UNIX_TIMESTAMP() - UNIX_TIMESTAMP(last_update) as gap
+	$pollers = db_fetch_assoc('SELECT id, status, UNIX_TIMESTAMP() - UNIX_TIMESTAMP(last_update) AS gap
 		FROM poller
 		WHERE id > 1
 		AND disabled = ""');
@@ -1302,6 +1321,8 @@ function install_full_sync() {
 
 			if (($poller['status'] == POLLER_STATUS_NEW) ||
 				($poller['status'] == POLLER_STATUS_DOWN) ||
+				($poller['status'] == POLLER_STATUS_HEARTBEAT) ||
+				($poller['status'] == POLLER_STATUS_RECOVERING) ||
 				($poller['status'] == POLLER_STATUS_DISABLED)) {
 				$skipped[] = $poller['id'];
 			} elseif ($poller['gap'] < $gap_time) {
@@ -1328,6 +1349,7 @@ function install_full_sync() {
 			}
 		}
 	}
+
 	log_install_debug('sync', 'Success: ' . cacti_sizeof($success) . ', Failed: ' . cacti_sizeof($failed) . ', Skipped: ' . cacti_sizeof($skipped) . ', Total: ' . cacti_sizeof($pollers));
 
 	return array(

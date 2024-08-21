@@ -2754,10 +2754,10 @@ function test_data_source($data_template_id, $host_id, $snmp_query_id = 0, $snmp
 								$prepend = $script_queries['arg_prepend'];
 							}
 
-							$script_path = read_config_option('path_php_binary') . ' -q ' . get_script_query_path(trim($prepend . ' ' . $script_queries['arg_get'] . ' ' . $identifier . ' ' . $snmp_index), $script_queries['script_path'], $host_id);
+							$script_path = read_config_option('path_php_binary') . ' -q ' . get_script_query_path(trim($prepend . ' ' . $script_queries['arg_get'] . ' ' . $identifier . ' "' . $snmp_index . '"'), $script_queries['script_path'], $host_id);
 						} else {
 							$action      = POLLER_ACTION_SCRIPT;
-							$script_path = get_script_query_path(trim((isset($script_queries['arg_prepend']) ? $script_queries['arg_prepend'] : '') . ' ' . $script_queries['arg_get'] . ' ' . $identifier . ' ' . $snmp_index), $script_queries['script_path'], $host_id);
+							$script_path = get_script_query_path(trim((isset($script_queries['arg_prepend']) ? $script_queries['arg_prepend'] : '') . ' ' . $script_queries['arg_get'] . ' ' . $identifier . ' "' . $snmp_index . '"'), $script_queries['script_path'], $host_id);
 						}
 					}
 
@@ -8051,6 +8051,33 @@ function get_client_addr():string|false {
 	}
 
 	return $client_addr;
+}
+
+/**
+ * get_cacti_base_tables - Extracts all the base Cacti tables from the
+ * cacti.sql file in the base Cacti directory.
+ */
+function get_cacti_base_tables() {
+	global $config;
+
+	$base_tables = array();
+
+	if (file_exists($config['base_path'] . '/cacti.sql')) {
+		$schema = file($config['base_path'] . '/cacti.sql');
+	} else {
+		return $base_tables;
+	}
+
+	if (cacti_sizeof($schema)) {
+		foreach($schema as $line) {
+			if (strpos($line, 'CREATE TABLE') !== false) {
+				$table = str_replace(array('CREATE TABLE', '`', '(', ' '), '', $line);
+				$base_tables[] = trim($table);
+			}
+		}
+	}
+
+	return $base_tables;
 }
 
 function cacti_pton($ipaddr) {

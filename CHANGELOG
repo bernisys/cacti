@@ -20,6 +20,7 @@ Cacti CHANGELOG
 -issue#5573: Incorrect URL for editing graph template
 -issue#5639: Add tooltip info about IPv6 address
 -issue#5680: Fix Spikekill not following correct time in schedule
+-issue#5776: Undefined array key "description" in file settings.php
 -feature#412: Import Export for Graph and Tree rules
 -feature#1214: Move Tree Create/Remove/Modify Functions to lib/api_tree.php
 -feature#1442: Add validation to GUI inputs
@@ -100,6 +101,30 @@ Cacti CHANGELOG
 -feature: Upgrade d3.js to version 7.8.2
 -feature: Upgrade ua-parser.js to version 1.0.35
 -feature#5717: Add Aruba Clearpass template
+
+1.2.28
+-security#GHSA-fgc6-g8gc-wcg5: External Link Console Menu Item not Escaped
+-security#GHSA-49f2-hwx9-qffr: External Link Console Menu Section not Escaped
+-security#GHSA-wh9c-v56x-v77c: It is possible to create XSS with an nafarious External Link
+-security#GHSA-gxq4-mv8h-6qj4: Fix a possible user directed RCE when installing Cacti
+-issue#5754: Installer replication loop for. Plugin realms
+-issue#5759: Remote poller attempts to sync with other pollers during install
+-issue#5768: Cacti does not properly escape Data Query indexes that include a space
+-issue#5772: Login log message unification - add client IP adress
+-issue#5773: Update rrd.php missing variable $okpos
+-issue#5777: The Export .CSV only includes the 1st line of Notes
+-issue#5780: Undefined array key "default" in file html_form.php
+-issue#5782: Function file_get_contents in file link.php
+-issue#5783: Cacti improperly handles connection closing leading to issues with third party connections
+-issue#5785: auth_changepassword.php triggers NS_ERROR_REDIRECT_LOOP if server's default IP address is not public
+-issue#5790: Cactid - Cron out of sync with poller Message
+-issue#5791: Unable to filter users by user group, or the last time they logged into Cacti
+-issue#5792: Unable to add Graphs to a Report from Cacti List View
+-feature#5784: Provide a means by which a user can track Cacti connections and disconnects from the php error_log
+-feature#5796: Due to Conflicting Interpretations of TCP Ping, Introduce new Ping Method
+-feature: Update jQueryUI to 1.14.0
+-feature: Improve the performance of the repopulation of the poller cache
+-feature: Add additional Repair Database Checks to address various Cacti database corruptions
 
 1.2.27
 -security#GHSA-37x7-mfjv-mm7m: Authentication Bypass when using using older password hashes
