@@ -205,6 +205,7 @@ if ($child == false) {
 			}
 
 			/* tell the main poller that we are done */
+			boost_debug('Updating end time: ' . date('Y-m-d H:i:s'));
 			set_config_option('boost_poller_status', 'complete - end time:' . date('Y-m-d H:i:s'));
 
 			/* Finish processing post */
@@ -393,6 +394,9 @@ function boost_prepare_process_table() {
 	db_execute("ANALYZE TABLE $archive_table");
 
 	$arch_tables = boost_get_arch_table_names($archive_table);
+	if (trim(read_config_option('path_boost_log')) != '') {
+		print "DEBUG: in boost_prepare_process_table() -> arch_tables = " . var_dump($arch_tables) . PHP_EOL;
+  	}
 
 	if (!cacti_sizeof($arch_tables)) {
 		cacti_log('ERROR: Failed to retrieve archive table name - check poller', false, 'BOOST');
@@ -428,6 +432,9 @@ function boost_prepare_process_table() {
 	db_execute('TRUNCATE poller_output_boost_local_data_ids');
 
 	foreach ($arch_tables as $table) {
+		if (trim(read_config_option('path_boost_log')) != '') {
+			print "DEBUG: creating list of local data IDs for table " . $table . PHP_EOL;
+		}
 		db_execute("INSERT IGNORE INTO poller_output_boost_local_data_ids
 			(local_data_id)
 			SELECT DISTINCT local_data_id
@@ -446,6 +453,8 @@ function boost_prepare_process_table() {
 
 	$count = 1;
 
+	boost_debug("Assigning Data Sources to Processes ...");
+	
 	while ($count <= $processes) {
 		db_execute_prepared('UPDATE poller_output_boost_local_data_ids
 			SET process_handler = ?
@@ -461,6 +470,7 @@ function boost_prepare_process_table() {
 	return true;
 }
 
+/* This function is called when running as master process */
 function boost_launch_children() {
 	global $config, $debug;
 
@@ -575,6 +585,7 @@ function boost_time_to_run($forcerun, $current_time, $last_run_time, $next_run_t
 	return $run_now;
 }
 
+/* This function is called when running as a child process */
 function boost_output_rrd_data($child) {
 	global $start, $archive_table, $max_run_duration, $config, $database_default, $debug, $get_memory, $memory_used;
 
@@ -603,12 +614,14 @@ function boost_output_rrd_data($child) {
 	$total_rows = 0;
 
 	foreach ($arch_tables as $table) {
-		$total_rows += db_fetch_cell_prepared("SELECT COUNT(at.local_data_id)
+		$local_rows = db_fetch_cell_prepared("SELECT COUNT(at.local_data_id)
 			FROM $table AS at
 			INNER JOIN poller_output_boost_local_data_ids AS bpt
 			ON at.local_data_id = bpt.local_data_id
 			AND bpt.process_handler = ?",
 			array($child));
+		$total_rows += $local_rows;
+		boost_debug("Boost Process " . $child . " handling " . $local_rows . " rows from table: " . $table);
 	}
 
 	if ($total_rows == 0) {
@@ -632,6 +645,7 @@ function boost_output_rrd_data($child) {
 	while ($data_ids > 0) {
 		boost_debug("Processing $curpass of $passes for Boost Process $child");
 
+		/* always starting with the highest data ID ... */
 		$last_id = db_fetch_cell_prepared("SELECT MAX(local_data_id)
 			FROM (
 				SELECT local_data_id
@@ -646,6 +660,7 @@ function boost_output_rrd_data($child) {
 			break;
 		}
 
+		/* process that highest data-ID into RRD file */
 		boost_process_local_data_ids($last_id, $child, $rrdtool_pipe);
 
 		$curpass++;
@@ -728,6 +743,10 @@ function boost_process_local_data_ids($last_id, $child, $rrdtool_pipe) {
 		cacti_log('Failed to determine archive tables', false, 'BOOST');
 
 		return 0;
+	} else {
+		if (trim(read_config_option('path_boost_log')) != '') {
+			print "DEBUG: in boost_process_local_data_ids() -> arch_tables = " . var_dump($archive_tables) . PHP_EOL;
+		}
 	}
 
 	if (!cacti_sizeof($rrd_field_names)) {
@@ -758,8 +777,19 @@ function boost_process_local_data_ids($last_id, $child, $rrdtool_pipe) {
 	$query_string = $query_string . $sub_query_string . ') t ' . $query_string_suffix;
 
 	boost_timer('get_records', BOOST_TIMER_START);
+	if (trim(read_config_option('path_boost_log')) != '') {
+		print "DEBUG: executing query: $query_string" . PHP_EOL;
+		print "DEBUG: " . time() . " child " . $child . " start reading data-ID " . $last_id . PHP_EOL;
+	}
+	$time_fetch_start = time();
 	$results = db_fetch_assoc($query_string);
+	$time_fetch_end = time();
+	$time_fetch = $time_fetch_end - $time_fetch_start;
 	boost_timer('get_records', BOOST_TIMER_END);
+	if (trim(read_config_option('path_boost_log')) != '') {
+		print "DEBUG: " . time() . " child " . $child " done reading data-ID " . $last_id . PHP_EOL;
+		print "DEBUG: fetching data-ID " . $last_id . " took " . $time_fetch . " seconds (" . $time_fetch_start . " to " . $time_fetch_end . ")." . PHP_EOL;
+	}
 
 	/* log memory */
 	if ($get_memory) {
@@ -1176,7 +1206,14 @@ function boost_process_local_data_ids($last_id, $child, $rrdtool_pipe) {
 function boost_process_output($local_data_id, $outarray, $rrd_path, $rrd_tmplp, $rrdtool_pipe) {
 	$outbuf = '';
 
+	if (trim(read_config_option('path_boost_log')) != '') {
+		print "DEBUG: entering boost_process_output" . PHP_EOL;
+	}
+
 	if (cacti_sizeof($outarray)) {
+		if (trim(read_config_option('path_boost_log')) != '') {
+			print "DEBUG: Creating \$outbuf from \$outarray with " . cacti_sizeof($outarray) . " data-sets for data-ID " . $local_data_id . PHP_EOL;
+		}
 		foreach ($outarray as $tsdata) {
 			$outbuf .= ($outbuf != '' ? ' ':'') . implode(':', $tsdata);
 		}
@@ -1185,7 +1222,7 @@ function boost_process_output($local_data_id, $outarray, $rrd_path, $rrd_tmplp, 
 	$rrd_tmpl = implode(':', array_keys($rrd_tmplp));
 
 	if (trim(read_config_option('path_boost_log')) != '') {
-		print "DEBUG: Updating Local Data Id:'$local_data_id', Template:" . $rrd_tmpl . ', Output:' . $outbuf . PHP_EOL;
+		print "DEBUG: Child " . $child . " updating Local Data Id:'$local_data_id', Template:" . $rrd_tmpl . ', Output:' . $outbuf . PHP_EOL;
 	}
 
 	boost_timer('rrdupdate', BOOST_TIMER_START);
